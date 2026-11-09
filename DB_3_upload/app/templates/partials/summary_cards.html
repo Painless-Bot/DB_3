@@ -1,0 +1,69 @@
+{# 요약 카드 4개 + 졸업 판정. r = load_report() 결과 #}
+{% set st = r.status %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3">
+    <div class="card stat-card">
+      <span class="stat-ico">{% include "partials/icon_grad.html" %}</span>
+      <div class="stat-label">졸업 이수학점</div>
+      {% if st.req_id %}
+        <div class="stat-value">{{ st.earned_total }}<span class="fs-6 text-muted fw-normal"> / {{ st.required_total }}</span></div>
+        <div class="progress my-2"><div class="progress-bar {{ 'bg-success' if not st.remaining_total }}" style="width: {{ st.earned_total|pct(st.required_total) }}%"></div></div>
+        <div class="stat-sub">{% if st.remaining_total %}{{ st.remaining_total }}학점 남음{% else %}총학점 충족{% endif %} · 설계 {{ st.earned_design }}/{{ st.min_design_credits }}</div>
+      {% else %}
+        <div class="stat-value">{{ st.earned_total }}</div>
+        <div class="stat-sub text-danger">이 학번의 졸업요건이 등록되지 않음</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card stat-card">
+      <span class="stat-ico">{% include "partials/icon_table.html" %}</span>
+      <div class="stat-label">평점 (누적 / 직전 학기)</div>
+      <div class="stat-value">{{ st.cum_gpa|gpa }}<span class="fs-6 text-muted fw-normal"> / {{ r.last_sem.gpa|gpa if r.last_sem else '-' }}</span></div>
+      <div class="stat-sub mt-2">
+        {% if r.last_sem %}직전 정규학기 {{ r.last_sem.year }}년 {{ r.last_sem.term|term }} · {{ r.last_sem.earned_credits }}학점 취득{% else %}수강 이력 없음{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card stat-card">
+      <span class="stat-ico">{% include "partials/icon_layers.html" %}</span>
+      <div class="stat-label">미충족 항목</div>
+      {% set short = st.short_area_count + st.short_group_count + st.missing_required_count %}
+      <div class="stat-value {{ 'text-danger' if short }}">{{ short }}<span class="fs-6 text-muted fw-normal">개</span></div>
+      <div class="stat-sub mt-2">영역 {{ st.short_area_count }} · 과목군 {{ st.short_group_count }} · 필수과목 {{ st.missing_required_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card stat-card">
+      <span class="stat-ico">{% include "partials/icon_award.html" %}</span>
+      <div class="stat-label">지원 가능 장학금</div>
+      <div class="stat-value {{ 'text-success' if r.eligible_count }}">{{ r.eligible_count }}<span class="fs-6 text-muted fw-normal"> / {{ r.scholarships|length }}</span></div>
+      <div class="stat-sub mt-2">
+        {% set ok = r.scholarships|selectattr('eligible')|map(attribute='sch_name')|list %}
+        {{ ok|join(', ') if ok else '현재 기준을 충족한 장학금 없음' }}
+      </div>
+    </div>
+  </div>
+</div>
+{% if st.req_id %}
+<div class="verdict {{ 'ok' if st.graduatable else 'no' }} mb-4">
+  <span class="fs-4">{{ '🎓' if st.graduatable else '📋' }}</span>
+  <div>
+  {% if st.graduatable %}
+    <div class="big">졸업 요건을 모두 충족했습니다.</div>
+    <div class="small">{{ r.req|years }} 기준 · 시스템이 판정하지 않는 요건(영어 성적 등)은 아래 안내를 확인하세요.</div>
+  {% else %}
+    <div class="big">아직 졸업 요건을 충족하지 못했습니다.</div>
+    {% set reasons = [] %}
+    {% if st.remaining_total %}{% set _ = reasons.append('총학점 ' ~ st.remaining_total ~ '학점 부족') %}{% endif %}
+    {% if st.earned_design < st.min_design_credits %}{% set _ = reasons.append('설계학점 ' ~ (st.min_design_credits - st.earned_design) ~ '학점 부족') %}{% endif %}
+    {% for a in r.areas if a.remaining_credits %}{% set _ = reasons.append(a.area_name ~ ' ' ~ a.remaining_credits ~ '학점') %}{% endfor %}
+    {% for g in r.groups if g.remaining_credits %}{% set _ = reasons.append(g.group_name ~ (' 미이수' if g.min_credits == 1 else ' ' ~ g.remaining_credits ~ '학점')) %}{% endfor %}
+    {% for m in r.missing %}{% set _ = reasons.append(m.course_name ~ ' 미이수') %}{% endfor %}
+    {% if not st.gpa_ok %}{% set _ = reasons.append('평점 ' ~ (st.min_gpa|gpa) ~ ' 미만') %}{% endif %}
+    <div class="small">{{ reasons|join(' · ') }}</div>
+  {% endif %}
+  </div>
+</div>
+{% endif %}

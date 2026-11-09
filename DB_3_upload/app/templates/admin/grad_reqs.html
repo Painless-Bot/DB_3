@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}졸업요건 관리{% endblock %}
+{% block hero %}
+<div class="eyebrow">ADMIN · GRADUATION RULES</div>
+<h1 class="hero-title"><strong>{{ admin_dept_name }}</strong> 졸업요건 관리</h1>
+<p class="hero-sub">졸업요건은 입학연도 구간 단위로 관리합니다. 학생의 입학연도가 든 구간의 요건이 자동으로 적용되고, 구간이 겹치면 DB 트리거가 저장을 막습니다.</p>
+{% endblock %}
+{% block content %}
+<div class="card p-4 mb-3">
+<div class="table-responsive">
+<table class="table mb-0">
+  <thead><tr><th>입학연도 구간</th><th class="text-end">총학점</th><th class="text-end">설계</th><th class="text-end">최소평점</th><th class="text-center">영역</th><th class="text-center">과목군</th><th class="text-center">필수과목</th><th class="text-center">해당 학생</th><th></th></tr></thead>
+  <tbody>
+  {% for g in rows %}
+    <tr>
+      <td class="fw-semibold">{{ g|years }}</td>
+      <td class="text-end">{{ g.total_credits }}</td>
+      <td class="text-end">{{ g.min_design_credits }}</td>
+      <td class="text-end">{{ g.min_gpa|gpa if g.min_gpa is not none else '없음' }}</td>
+      <td class="text-center">{{ g.area_count }}개</td>
+      <td class="text-center">{{ g.group_count }}개</td>
+      <td class="text-center">{{ g.required_count }}과목</td>
+      <td class="text-center">{{ g.student_count }}명</td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.grad_req_edit', req_id=g.req_id) }}">수정</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="text-muted">등록된 졸업요건이 없습니다.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+</div>
+<form method="post" class="card p-4" style="max-width: 620px">
+  <div class="card-title-sm">새 졸업요건 추가</div>
+  <div class="row g-2 align-items-end">
+    <div class="col"><label class="form-label small" for="from_year">시작 입학연도</label>
+      <input class="form-control" id="from_year" name="from_year" type="number" min="2000" max="2100" required></div>
+    <div class="col"><label class="form-label small" for="to_year">끝 입학연도 (비우면 이후 계속)</label>
+      <input class="form-control" id="to_year" name="to_year" type="number" min="2000" max="2100"></div>
+    <div class="col-auto"><button class="btn btn-primary">추가</button></div>
+  </div>
+</form>
+{% endblock %}

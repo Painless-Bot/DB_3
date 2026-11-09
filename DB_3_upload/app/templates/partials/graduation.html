@@ -1,0 +1,94 @@
+{# 영역별 학점 + 과목군 + 미이수 필수과목 + 요건 안내 #}
+{% set st = r.status %}
+{% if not st.req_id %}
+  <div class="card p-4"><p class="text-danger mb-0">{{ r.info.dept_name }} {{ r.info.admission_year }}학번에 적용할 졸업요건이 아직 등록되지 않았습니다. 학과 담당자 화면에서 입학연도 구간을 추가하면 바로 진단됩니다.</p></div>
+{% else %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">영역별 이수 학점 <span class="sub">{{ r.info.dept_name }} · {{ r.req|years }} 기준</span></div>
+      <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>영역</th><th class="text-end">기준</th><th class="text-end">이수</th><th class="text-end">남음</th><th style="width:32%"></th></tr></thead>
+        <tbody>
+        {% for a in r.areas %}
+          <tr class="{{ '' if a.parent_code else 'fw-semibold' }}">
+            <td>{% if a.parent_code %}<span class="text-muted ms-2">└ </span>{% endif %}{{ a.area_name }}</td>
+            <td class="text-end">{{ a.min_credits }}</td>
+            <td class="text-end">{{ a.earned_credits }}</td>
+            <td class="text-end {{ 'text-danger' if a.remaining_credits }}">{{ a.remaining_credits or '✓' }}</td>
+            <td><div class="progress"><div class="progress-bar {{ 'bg-success' if not a.remaining_credits }}" style="width: {{ a.earned_credits|pct(a.min_credits) }}%"></div></div></td>
+          </tr>
+        {% endfor %}
+          <tr class="fw-bold" style="border-top:2px solid var(--line)">
+            <td>총 이수학점</td>
+            <td class="text-end">{{ st.required_total }}</td>
+            <td class="text-end">{{ st.earned_total }}</td>
+            <td class="text-end {{ 'text-danger' if st.remaining_total }}">{{ st.remaining_total or '✓' }}</td>
+            <td><div class="progress"><div class="progress-bar {{ 'bg-success' if not st.remaining_total }}" style="width: {{ st.earned_total|pct(st.required_total) }}%"></div></div></td>
+          </tr>
+          <tr>
+            <td>설계학점</td>
+            <td class="text-end">{{ st.min_design_credits }}</td>
+            <td class="text-end">{{ st.earned_design }}</td>
+            {% set dleft = st.min_design_credits - st.earned_design %}
+            <td class="text-end {{ 'text-danger' if dleft > 0 }}">{{ dleft if dleft > 0 else '✓' }}</td>
+            <td><div class="progress"><div class="progress-bar {{ 'bg-success' if dleft <= 0 }}" style="width: {{ st.earned_design|pct(st.min_design_credits) }}%"></div></div></td>
+          </tr>
+          <tr>
+            <td>누적 평점</td>
+            <td class="text-end">{{ st.min_gpa|gpa if st.min_gpa is not none else '기준 없음' }}</td>
+            <td class="text-end">{{ st.cum_gpa|gpa }}</td>
+            <td colspan="2" class="small {{ 'text-success' if st.gpa_ok else 'text-danger' }}">{{ '충족' if st.gpa_ok else '기준 미달' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="small text-muted mt-3 mb-0">
+        세부 이수: {% for a in r.earned_by_area if a.parent_code or a.area_code in ('SL','EN','FE') %}{{ a.area_name }} {{ a.earned_credits }}{% if not loop.last %} · {% endif %}{% endfor %}
+        <br>재수강 과목은 가장 최근 성적만 인정하고, F·NP 는 학점에 넣지 않습니다.
+      </p>
+    </div>
+  </div>
+  <div class="col-lg-5 d-flex flex-column gap-3">
+    <div class="card p-4">
+      <div class="card-title-sm">미이수 필수과목 <span class="pill {{ 'pill-bad' if r.missing else 'pill-ok' }}">{{ r.missing|length }}</span></div>
+      {% if r.missing %}
+        <ul class="list-group list-group-flush">
+          {% for m in r.missing %}
+            <li class="list-group-item px-0 d-flex justify-content-between">
+              <span>{{ m.course_name }} <span class="text-muted small">{{ m.course_id }}</span></span>
+              <span class="text-muted small">{{ m.area_name }} · {{ m.credits }}학점</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-success mb-0 small">전공필수 · 기초설계 · 종합설계 과목을 모두 이수했습니다.</p>
+      {% endif %}
+    </div>
+    <div class="card p-4">
+      <div class="card-title-sm">과목군 요건 <span class="sub">택1 · 필수 영역 · SW/데이터활용역량</span></div>
+      {% for g in r.groups %}
+        <div class="d-flex justify-content-between align-items-start py-2 {{ 'border-top' if not loop.first }}">
+          <div class="me-2">
+            <div class="fw-semibold small">{{ g.group_name }}</div>
+            <div class="small text-muted">{{ g.description }}</div>
+            {% if g.earned_courses %}<div class="small text-muted">이수: {{ g.earned_courses|truncate(45) }}</div>{% endif %}
+          </div>
+          <span class="pill {{ 'pill-ok' if not g.remaining_credits else 'pill-bad' }} text-nowrap">{% if g.min_credits == 1 %}{{ '이수' if not g.remaining_credits else '미이수' }}{% else %}{{ g.min_credits if not g.remaining_credits else g.earned_credits }}/{{ g.min_credits }}{% endif %}</span>
+        </div>
+      {% else %}
+        <p class="small text-muted mb-0">이 요건에는 과목군 조건이 없습니다.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% if r.req.note %}
+  <div class="col-12">
+    <div class="card p-3 small text-muted">
+      <strong class="text-body">시스템이 판정하지 않는 요건</strong> {{ r.req.note }}
+      {% if r.req.source_url %}<div class="mt-1">기준: {{ r.req.source_url }}</div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}

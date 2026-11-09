@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}성적 조회{% endblock %}
+{% block hero %}
+{% set page_label = 'STUDENT · GRADES' %}{% set page_title = '성적 조회' %}{% set page_desc = '학기별 수강 과목과 평점입니다. 재수강한 과목은 가장 최근 성적만 인정됩니다.' %}
+{% include "partials/student_hero.html" %}
+{% endblock %}
+{% block content %}
+{% set editable = False %}{% include "partials/grades.html" %}
+{% endblock %}

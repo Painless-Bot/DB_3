@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}졸업요건 진단{% endblock %}
+{% block hero %}
+{% set page_label = 'STUDENT · GRADUATION' %}{% set page_title = '졸업요건 진단' %}{% set page_desc = '입학연도 구간에 맞는 졸업요건으로 영역·과목군·필수과목을 판정합니다.' %}
+{% include "partials/student_hero.html" %}
+{% endblock %}
+{% block content %}
+{% include "partials/graduation.html" %}
+{% endblock %}

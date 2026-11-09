@@ -1,0 +1,37 @@
+{# 장학금별 판정 #}
+<div class="card p-4">
+  <div class="card-title-sm">교내장학금 지원 자격 <span class="sub">최소 기준 충족 여부</span></div>
+  <p class="small text-muted">
+    {% if r.last_sem %}
+      직전 정규학기({{ r.last_sem.year }}년 {{ r.last_sem.term|term }}) 평점 <strong class="text-body">{{ r.last_sem.gpa|gpa }}</strong>,
+      취득 <strong class="text-body">{{ r.last_sem.earned_credits }}학점</strong>, 소득분위 <strong class="text-body">{{ r.info.income_bracket }}</strong>,
+      봉사 <strong class="text-body">{{ r.info.volunteer_hours }}시간</strong>, {{ r.info.grade_level }}학년 기준.
+      기준을 충족해도 실제 선발은 학과 내 성적 경쟁으로 정해지며, 국가장학금 1차 신청이 필요합니다.
+    {% else %}수강 이력이 없어 판정할 수 없습니다.{% endif %}
+  </p>
+  <div class="table-responsive">
+  <table class="table mb-0">
+    <thead><tr><th>장학금</th><th>지급</th><th>평점</th><th>취득학점</th><th>소득분위</th><th>봉사</th><th>결과</th></tr></thead>
+    <tbody>
+    {% for s in r.scholarships %}
+      <tr>
+        <td><div class="fw-semibold">{{ s.sch_name }}</div><span class="small text-muted">{{ s.category }}{{ ' · 학과' if s.sch_dept_id }}</span></td>
+        <td class="small">{{ s.amount_desc or '-' }}</td>
+        <td><span class="cond {{ 'ok' if s.gpa_ok else 'no' }}">{{ s.min_gpa|gpa }} 이상
+          {% if not s.gpa_ok %}<small>{{ '%.2f'|format(s.min_gpa - (s.last_gpa or 0)) }} 부족</small>{% endif %}</span></td>
+        <td><span class="cond {{ 'ok' if s.credits_ok else 'no' }}">{{ s.min_credits }} 이상
+          {% if not s.credits_ok %}<small>{{ s.min_credits - (s.last_credits or 0) }}학점 부족</small>{% endif %}</span></td>
+        <td><span class="cond {{ 'ok' if s.income_ok else 'no' }}">{{ (s.max_income ~ '분위 이하') if s.max_income is not none else '무관' }}</span></td>
+        <td><span class="cond {{ 'ok' if s.volunteer_ok else 'no' }}">
+          {% if s.min_volunteer_hours is none %}없음{% else %}{{ s.min_volunteer_hours }}시간
+            {% if s.volunteer_exempt %}<small>{{ s.volunteer_exempt_level }}학년 면제</small>
+            {% elif not s.volunteer_ok %}<small>{{ s.min_volunteer_hours - s.volunteer_hours }}시간 부족</small>{% endif %}{% endif %}</span></td>
+        <td>{% if s.eligible %}<span class="pill pill-ok">지원 가능</span>{% else %}<span class="pill pill-no">미달</span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="text-muted">등록된 장학금이 없습니다.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

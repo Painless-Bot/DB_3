@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+{% block hero %}
+{% set page_label = 'STUDENT · DASHBOARD' %}{% set page_desc = '졸업요건과 교내장학금 지원 자격을 한눈에 봅니다. 성적이 바뀌면 판정도 즉시 바뀝니다.' %}
+{% include "partials/student_hero.html" %}
+{% endblock %}
+{% block content %}
+{% include "partials/summary_cards.html" %}
+<div class="section-tabs"><span class="on">QUICK MENU</span></div>
+<div class="row g-3">
+  <div class="col-6 col-lg-3"><a class="service-card" href="{{ url_for('student.graduation') }}"><div class="art art-1">{% include "partials/icon_grad.html" %}</div>
+    <div class="body"><strong>졸업요건 진단</strong><span>영역·과목군·필수과목별 남은 학점</span></div></a></div>
+  <div class="col-6 col-lg-3"><a class="service-card" href="{{ url_for('student.scholarships') }}"><div class="art art-3">{% include "partials/icon_award.html" %}</div>
+    <div class="body"><strong>장학금 진단</strong><span>장학금별 충족 조건과 부족한 점</span></div></a></div>
+  <div class="col-6 col-lg-3"><a class="service-card" href="{{ url_for('student.grades') }}"><div class="art art-2">{% include "partials/icon_table.html" %}</div>
+    <div class="body"><strong>성적 조회</strong><span>학기별 과목과 평점, 재수강 표시</span></div></a></div>
+  <div class="col-6 col-lg-3"><a class="service-card" href="{{ url_for('student.import_grades') }}"><div class="art art-4">{% include "partials/icon_upload.html" %}</div>
+    <div class="body"><strong>성적 가져오기</strong><span>클래스룸 성적표 붙여넣기 · CSV</span></div></a></div>
+</div>
+{% endblock %}

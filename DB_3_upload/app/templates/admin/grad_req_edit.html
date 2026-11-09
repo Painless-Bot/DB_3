@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}졸업요건 수정{% endblock %}
+{% block hero %}
+<a class="small text-white-50 text-decoration-none" href="{{ url_for('admin.grad_reqs') }}">← 졸업요건 목록</a>
+<div class="eyebrow mt-2">ADMIN · EDIT RULE</div>
+<h1 class="hero-title">{{ admin_dept_name }} <strong>{{ req|years }}</strong> 졸업요건</h1>
+<p class="hero-sub">저장하면 헤더·영역·과목군·필수과목을 한 트랜잭션으로 바꿉니다.</p>
+{% endblock %}
+{% block content %}
+<form method="post">
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">기본 요건</div>
+      <div class="row g-2">
+        <div class="col-6"><label class="form-label small">시작 입학연도</label>
+          <input class="form-control" name="from_year" type="number" value="{{ req.from_year }}" required></div>
+        <div class="col-6"><label class="form-label small">끝 입학연도 (비우면 이후 계속)</label>
+          <input class="form-control" name="to_year" type="number" value="{{ req.to_year if req.to_year }}"></div>
+        <div class="col-4"><label class="form-label small">총 졸업학점</label>
+          <input class="form-control" name="total_credits" type="number" min="1" value="{{ req.total_credits }}" required></div>
+        <div class="col-4"><label class="form-label small">최소 설계학점</label>
+          <input class="form-control" name="min_design_credits" type="number" min="0" value="{{ req.min_design_credits }}"></div>
+        <div class="col-4"><label class="form-label small">최소 평점 (비우면 없음)</label>
+          <input class="form-control" name="min_gpa" type="number" step="0.01" min="0" max="4.5" value="{{ req.min_gpa if req.min_gpa is not none }}"></div>
+        <div class="col-12"><label class="form-label small">시스템이 판정하지 않는 요건 안내</label>
+          <textarea class="form-control" name="note" rows="3">{{ req.note or '' }}</textarea></div>
+      </div>
+    </div>
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">영역별 최소 학점 <span class="sub">비우면 요건에서 뺌 · 묶음 영역은 하위 영역 합산</span></div>
+      {% for a in areas %}
+        <div class="row g-2 align-items-center mb-2">
+          <label class="col-6 col-form-label small {{ '' if a.parent_code else 'fw-bold' }}" for="area_{{ a.area_code }}">{% if a.parent_code %}└ {% endif %}{{ a.area_name }} <span class="text-muted">{{ a.area_code }}</span></label>
+          <div class="col-6"><input class="form-control form-control-sm" id="area_{{ a.area_code }}" name="area_{{ a.area_code }}" type="number" min="0"
+               value="{{ a.min_credits if a.min_credits is not none }}"></div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="card p-4">
+      <div class="card-title-sm">과목군 요건 <span class="sub">과목군 안에서 n학점 이상 · 1로 두면 "1과목 이상"으로 판정</span></div>
+      {% for g in groups %}
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-8"><div class="small fw-semibold">{{ g.group_name }}</div><div class="small text-muted" title="{{ g.courses }}">{{ g.description }}</div></div>
+          <div class="col-4"><input class="form-control form-control-sm" name="group_{{ g.group_code }}" type="number" min="0"
+               value="{{ g.min_credits if g.min_credits is not none }}"></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <div class="card-title-sm">필수과목 <span class="sub">체크한 과목을 이수하지 않으면 졸업할 수 없습니다</span></div>
+      <div class="row">
+      {% for c in courses %}
+        <div class="col-sm-6">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="required" value="{{ c.course_id }}" id="c_{{ c.course_id }}" {{ 'checked' if c.selected }}>
+            <label class="form-check-label small" for="c_{{ c.course_id }}">{{ c.course_name }} <span class="text-muted">{{ c.area_name }} · {{ c.credits }}</span></label>
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+<button class="btn btn-primary btn-lg mt-3 px-4">저장</button>
+</form>
+{% endblock %}

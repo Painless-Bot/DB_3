@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}장학금 진단{% endblock %}
+{% block hero %}
+{% set page_label = 'STUDENT · SCHOLARSHIP' %}{% set page_title = '장학금 진단' %}{% set page_desc = '교내장학금 7종의 최소 기준과 직전 정규학기 성적을 비교합니다.' %}
+{% include "partials/student_hero.html" %}
+{% endblock %}
+{% block content %}
+{% include "partials/scholarships.html" %}
+{% endblock %}

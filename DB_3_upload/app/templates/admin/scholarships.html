@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}장학금 관리{% endblock %}
+{% block hero %}
+<div class="eyebrow">ADMIN · SCHOLARSHIPS</div>
+<h1 class="hero-title"><strong>장학금 기준</strong> 관리</h1>
+<p class="hero-sub">전체 학과 대상 교내장학금과 {{ admin_dept_name }} 학과 장학금의 최소 지원 기준을 관리합니다.</p>
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card p-4">
+    <div class="table-responsive">
+    <table class="table mb-0">
+      <thead><tr><th>장학금</th><th>지급</th><th class="text-end">평점</th><th class="text-end">학점</th><th>소득</th><th>봉사</th><th class="text-center">우리 학과 가능</th><th></th></tr></thead>
+      <tbody>
+      {% for s in rows %}
+        <tr class="{{ 'table-active' if sch and sch.sch_id == s.sch_id }}">
+          <td><div class="fw-semibold">{{ s.sch_name }}</div><span class="small text-muted">{{ s.category }} · {{ s.dept_name or '전체 학과' }}</span></td>
+          <td class="small">{{ s.amount_desc or '-' }}</td>
+          <td class="text-end">{{ s.min_gpa|gpa }}</td>
+          <td class="text-end">{{ s.min_credits }}</td>
+          <td class="small">{{ (s.max_income ~ '분위') if s.max_income is not none else '무관' }}</td>
+          <td class="small">{% if s.min_volunteer_hours is not none %}{{ s.min_volunteer_hours }}h{% if s.volunteer_exempt_level %} ({{ s.volunteer_exempt_level }}학년↑ 면제){% endif %}{% else %}-{% endif %}</td>
+          <td class="text-center">{{ s.eligible_count }}명</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.scholarship_edit', sch_id=s.sch_id) }}">수정</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-muted">등록된 장학금이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card p-4">
+      <div class="card-title-sm">{{ '장학금 수정' if sch else '새 장학금 등록' }}</div>
+      <form method="post" action="{{ url_for('admin.scholarship_edit', sch_id=sch.sch_id) if sch else url_for('admin.scholarships') }}">
+        <div class="row g-2 mb-2">
+          <div class="col-7"><label class="form-label small">장학명</label>
+            <input class="form-control" name="sch_name" value="{{ sch.sch_name if sch }}" required></div>
+          <div class="col-5"><label class="form-label small">구분</label>
+            <select class="form-select" name="category">
+              {% for c in ['성적우수', '가계지원', '학과'] %}<option {{ 'selected' if sch and sch.category == c }}>{{ c }}</option>{% endfor %}
+            </select></div>
+        </div>
+        <div class="mb-2"><label class="form-label small">지급액 (예: 등록금 80%, 90만원)</label>
+          <input class="form-control" name="amount_desc" value="{{ sch.amount_desc if sch and sch.amount_desc }}"></div>
+        <div class="row g-2 mb-2">
+          <div class="col-6"><label class="form-label small">최소 직전학기 평점</label>
+            <input class="form-control" name="min_gpa" type="number" step="0.01" min="0" max="4.5" value="{{ sch.min_gpa if sch else '3.00' }}" required></div>
+          <div class="col-6"><label class="form-label small">최소 취득학점</label>
+            <input class="form-control" name="min_credits" type="number" min="0" value="{{ sch.min_credits if sch else 15 }}" required></div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-4"><label class="form-label small">소득분위 상한</label>
+            <input class="form-control" name="max_income" type="number" min="0" max="10" value="{{ sch.max_income if sch and sch.max_income is not none }}"></div>
+          <div class="col-4"><label class="form-label small">봉사시간</label>
+            <input class="form-control" name="min_volunteer_hours" type="number" min="0" value="{{ sch.min_volunteer_hours if sch and sch.min_volunteer_hours is not none }}"></div>
+          <div class="col-4"><label class="form-label small">봉사 면제 학년</label>
+            <input class="form-control" name="volunteer_exempt_level" type="number" min="1" max="5" value="{{ sch.volunteer_exempt_level if sch and sch.volunteer_exempt_level is not none }}"></div>
+        </div>
+        <p class="small text-muted">비워 둔 칸은 조건 없음으로 봅니다.</p>
+        <div class="mb-3"><label class="form-label small">대상</label>
+          <select class="form-select" name="scope">
+            <option value="all" {{ 'selected' if sch and not sch.dept_id }}>전체 학과</option>
+            <option value="dept" {{ 'selected' if sch and sch.dept_id }}>{{ admin_dept_name }}만</option>
+          </select></div>
+        <button class="btn btn-primary" name="action" value="save">{{ '수정' if sch else '등록' }}</button>
+        {% if sch %}
+          <button class="btn btn-outline-danger ms-1" name="action" value="delete" formnovalidate onclick="return confirm('삭제할까요?')">삭제</button>
+          <a class="btn btn-link" href="{{ url_for('admin.scholarships') }}">취소</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

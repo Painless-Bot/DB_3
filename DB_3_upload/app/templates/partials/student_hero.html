@@ -1,0 +1,11 @@
+{# 학생 화면 공통 히어로. page_label, page_desc 를 set 해서 include #}
+<div class="eyebrow">{{ page_label }}</div>
+<h1 class="hero-title"><strong>{{ r.info.name }}</strong>님의 {{ page_title or '진단 결과' }}</h1>
+<p class="hero-sub mb-3">{{ page_desc }}</p>
+<div class="hero-badges">
+  <span class="badge-soft">{{ r.info.dept_name }} ({{ r.info.campus }})</span>
+  <span class="badge-soft">{{ r.info.admission_year }}학번 · {{ r.info.grade_level }}학년</span>
+  <span class="badge-soft">적용 요건: {{ r.req|years if r.req else '미등록' }}</span>
+  <span class="badge-soft">소득분위 {{ r.info.income_bracket }}</span>
+  <span class="badge-soft">봉사 {{ r.info.volunteer_hours }}시간</span>
+</div>
