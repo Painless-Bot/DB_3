@@ -1,0 +1,88 @@
+{# 서버에서 그리는 SVG 차트 (외부 라이브러리 없이 오프라인 동작) #}
+
+{# 학기별 평점 추이 + 취득학점 막대. sems = SEMESTER_RECORD 행 목록 #}
+{% macro gpa_trend(sems, height=230, label_terms=True) %}
+{% set n = sems|length %}
+{% if n == 0 %}
+  <div class="chart-empty">수강 이력이 없습니다.</div>
+{% else %}
+{% set W = 680 %}{% set H = height %}{% set L = 34 %}{% set R = 12 %}{% set T = 22 %}{% set B = 30 %}
+{% set pw = W - L - R %}{% set ph = H - T - B %}
+{% set step = pw / n %}
+{% set gmin = 1.5 %}{% set gmax = 4.5 %}
+<svg class="chart" viewBox="0 0 {{ W }} {{ H }}" role="img" aria-label="학기별 평점 추이">
+  {% for gv in [2.0, 2.5, 3.0, 3.5, 4.0, 4.5] %}
+    {% set y = T + ph - (gv - gmin) / (gmax - gmin) * ph %}
+    <line x1="{{ L }}" x2="{{ W - R }}" y1="{{ y }}" y2="{{ y }}" class="grid"/>
+    <text x="{{ L - 6 }}" y="{{ y + 4 }}" class="axis" text-anchor="end">{{ '%.1f'|format(gv) }}</text>
+  {% endfor %}
+  {% for s in sems %}
+    {% set cx = L + step * loop.index0 + step / 2 %}
+    {% set bh = ([s.earned_credits, 24]|min) / 24 * ph * 0.55 %}
+    <rect x="{{ cx - [step * 0.32, 16]|min }}" y="{{ T + ph - bh }}" width="{{ [step * 0.64, 32]|min }}" height="{{ bh }}" rx="4" class="bar {{ 'seasonal' if s.term in (3, 4) }}">
+      <title>{{ s.year }}년 {{ s.term|term }} 취득 {{ s.earned_credits }}학점</title></rect>
+    {% if label_terms %}
+    <text x="{{ cx }}" y="{{ H - 10 }}" class="axis" text-anchor="middle">{{ s.year % 100 }}-{{ {1: '1', 2: '2', 3: '여름', 4: '겨울'}[s.term] }}</text>
+    {% endif %}
+  {% endfor %}
+  {% set ns = namespace(d='') %}
+  {% for s in sems %}
+    {% if s.gpa is not none %}
+      {% set cx = L + step * loop.index0 + step / 2 %}
+      {% set y = T + ph - ([[s.gpa|float, gmin]|max, gmax]|min - gmin) / (gmax - gmin) * ph %}
+      {% set ns.d = ns.d ~ (' L' if ns.d else 'M') ~ ('%.1f'|format(cx)) ~ ',' ~ ('%.1f'|format(y)) %}
+    {% endif %}
+  {% endfor %}
+  <path d="{{ ns.d }}" class="line"/>
+  {% for s in sems %}
+    {% if s.gpa is not none %}
+      {% set cx = L + step * loop.index0 + step / 2 %}
+      {% set y = T + ph - ([[s.gpa|float, gmin]|max, gmax]|min - gmin) / (gmax - gmin) * ph %}
+      <circle cx="{{ cx }}" cy="{{ y }}" r="4.5" class="dot"><title>{{ s.year }}년 {{ s.term|term }} 평점 {{ s.gpa|gpa }}</title></circle>
+      {% if n <= 12 %}<text x="{{ cx }}" y="{{ y - 10 }}" class="val" text-anchor="middle">{{ s.gpa|gpa }}</text>{% endif %}
+    {% endif %}
+  {% endfor %}
+</svg>
+<div class="chart-legend"><span class="lg-line"></span>학기 평점 <span class="lg-bar"></span>취득학점 <span class="lg-bar seasonal"></span>계절학기</div>
+{% endif %}
+{% endmacro %}
+
+{# 가로 막대 목록. items = [(label, value, sub)] #}
+{% macro hbars(items, max_value=None, unit='', tone='') %}
+{% set mx = max_value or ((items|map(attribute=1)|max) if items else 1) or 1 %}
+<div class="hbars {{ tone }}">
+  {% for label, value, sub in items %}
+    <div class="hbar">
+      <div class="hbar-label">{{ label }}{% if sub %} <span class="text-muted">{{ sub }}</span>{% endif %}</div>
+      <div class="hbar-track"><span style="width: {{ (100 * value / mx)|round(1) if mx else 0 }}%"></span></div>
+      <div class="hbar-val">{{ value }}{{ unit }}</div>
+    </div>
+  {% else %}
+    <div class="chart-empty">해당 학생이 없습니다.</div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# 세로 막대 (히스토그램). items = [(label, value)] #}
+{% macro vbars(items, unit='명') %}
+{% set mx = (items|map(attribute=1)|max) if items else 1 %}
+<div class="vbars">
+  {% for label, value in items %}
+    <div class="vbar"><div class="vbar-col"><span style="height: {{ (100 * value / mx)|round(1) if mx else 0 }}%"><b>{{ value }}</b></span></div><div class="vbar-label">{{ label }}</div></div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# 원형 진행률. pct 0~100 #}
+{% macro ring(pct, label, sub='', ok=False, size=120) %}
+{% set r = 46 %}{% set c = 2 * 3.14159 * r %}
+<div class="ring-wrap">
+<svg class="ring {{ 'ok' if ok }}" viewBox="0 0 120 120" width="{{ size }}" height="{{ size }}" role="img" aria-label="{{ label }} {{ pct }}%">
+  <circle cx="60" cy="60" r="{{ r }}" class="ring-bg"/>
+  <circle cx="60" cy="60" r="{{ r }}" class="ring-fg" stroke-dasharray="{{ '%.1f'|format(c * pct / 100) }} {{ '%.1f'|format(c) }}" transform="rotate(-90 60 60)"/>
+  <text x="60" y="58" text-anchor="middle" class="ring-num">{{ pct }}%</text>
+  <text x="60" y="78" text-anchor="middle" class="ring-sub">{{ sub }}</text>
+</svg>
+<div class="ring-label">{{ label }}</div>
+</div>
+{% endmacro %}

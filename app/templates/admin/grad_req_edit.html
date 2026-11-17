@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}졸업요건 수정{% endblock %}
+{% block hero %}
+<a class="small text-white-50 text-decoration-none" href="{{ url_for('admin.grad_reqs') }}">← 졸업요건 목록</a>
+<div class="eyebrow mt-2">ADMIN · EDIT RULE</div>
+<h1 class="hero-title">{{ admin_dept_name }} <strong>{{ req|years }}</strong> 졸업요건</h1>
+<p class="hero-sub">저장하면 기본 요건·영역별 학점·과목군 연결을 한 트랜잭션으로 바꿉니다. 필수과목은 "모두 이수" 과목군으로 연결합니다.</p>
+{% endblock %}
+{% block content %}
+<form method="post">
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">기본 요건</div>
+      <div class="row g-2">
+        <div class="col-6"><label class="form-label small">시작 입학연도</label>
+          <input class="form-control" name="from_year" type="number" value="{{ req.from_year }}" required></div>
+        <div class="col-6"><label class="form-label small">끝 입학연도 (비우면 이후 계속)</label>
+          <input class="form-control" name="to_year" type="number" value="{{ req.to_year if req.to_year }}"></div>
+        <div class="col-4"><label class="form-label small">총 졸업학점</label>
+          <input class="form-control" name="total_credits" type="number" min="1" value="{{ req.total_credits }}" required></div>
+        <div class="col-4"><label class="form-label small">최소 설계학점</label>
+          <input class="form-control" name="min_design_credits" type="number" min="0" value="{{ req.min_design_credits }}"></div>
+        <div class="col-4"><label class="form-label small">최소 평점 (비우면 없음)</label>
+          <input class="form-control" name="min_gpa" type="number" step="0.01" min="0" max="4.5" value="{{ req.min_gpa if req.min_gpa is not none }}"></div>
+        <div class="col-12"><label class="form-label small">시스템이 판정하지 않는 요건 안내</label>
+          <textarea class="form-control" name="note" rows="3">{{ req.note or '' }}</textarea></div>
+      </div>
+    </div>
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">영역별 최소 학점 <span class="sub">비우면 요건에서 뺌 · 묶음 영역은 하위 영역 합산</span></div>
+      {% for a in areas %}
+        <div class="row g-2 align-items-center mb-2">
+          <label class="col-6 col-form-label small {{ '' if a.parent_code else 'fw-bold' }}" for="area_{{ a.area_code }}">{% if a.parent_code %}└ {% endif %}{{ a.area_name }} <span class="text-muted">{{ a.area_code }}</span></label>
+          <div class="col-6"><input class="form-control form-control-sm" id="area_{{ a.area_code }}" name="area_{{ a.area_code }}" type="number" min="0"
+               value="{{ a.min_credits if a.min_credits is not none }}"></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">필수과목 <span class="sub">체크한 목록의 과목을 하나라도 이수하지 않으면 졸업할 수 없습니다</span></div>
+      {% for g in groups if g.rule_type == 'ALL' %}
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="group_{{ g.group_code }}" value="1" id="g_{{ g.group_code }}" {{ 'checked' if g.linked }}>
+          <label class="form-check-label" for="g_{{ g.group_code }}"><strong>{{ g.group_name }}</strong> <span class="small text-muted">{{ g.member_count }}과목</span>
+            <div class="small text-muted">{{ g.courses or '과목 없음' }}</div></label>
+        </div>
+      {% else %}
+        <p class="small text-muted">필수과목 목록(모두 이수 과목군)이 없습니다.</p>
+      {% endfor %}
+      <a class="small" href="{{ url_for('admin.groups') }}">필수과목 목록 편집 · 새로 만들기 →</a>
+    </div>
+    <div class="card p-4">
+      <div class="card-title-sm">과목군 요건 <span class="sub">과목군 안에서 n학점 이상 · 1로 두면 "1과목 이상" · 비우면 요건에서 뺌</span></div>
+      {% for g in groups if g.rule_type == 'CREDITS' %}
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-8"><div class="small fw-semibold">{{ g.group_name }}</div><div class="small text-muted" title="{{ g.courses }}">{{ g.description }}</div></div>
+          <div class="col-4"><input class="form-control form-control-sm" name="group_{{ g.group_code }}" type="number" min="0"
+               value="{{ g.min_credits if g.min_credits is not none }}" placeholder="미적용"></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="d-flex gap-2 mt-3">
+  <button class="btn btn-primary btn-lg px-4">저장</button>
+  <button class="btn btn-outline-danger ms-auto" name="action" value="delete" formnovalidate
+          onclick="return confirm('이 졸업요건을 삭제할까요? 해당 학번 학생은 요건 미등록이 됩니다.')">요건 삭제</button>
+</div>
+</form>
+{% endblock %}

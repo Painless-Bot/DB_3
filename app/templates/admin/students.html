@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}학생 목록{% endblock %}
+{% block hero %}
+<div class="eyebrow">ADMIN · STUDENTS</div>
+<h1 class="hero-title"><strong>{{ admin_dept_name }}</strong> 학생 진단 현황</h1>
+<p class="hero-sub">학번·이름으로 찾고, 판정 상태별로 골라 보거나 CSV 로 내려받을 수 있습니다. 열 머리글을 누르면 정렬됩니다.</p>
+{% endblock %}
+{% block content %}
+<form class="row g-2 align-items-center mb-3">
+  <div class="col-sm-5 col-lg-4"><input class="form-control" name="q" value="{{ q }}" placeholder="학번 또는 이름"></div>
+  <input type="hidden" name="f" value="{{ f }}">
+  <div class="col-auto"><button class="btn btn-primary">검색</button></div>
+  <div class="col-auto ms-auto"><a class="btn btn-outline-primary" href="{{ url_for('admin.students_csv', q=q, f=f) }}">⬇ CSV 내려받기</a></div>
+</form>
+<div class="filter-chips mb-3">
+  {% for key, (label, _) in filters.items() %}
+    <a class="chip {{ 'on' if key == f }}" href="{{ url_for('admin.students', q=q or none, f=key) }}">{{ label }} <b>{{ counts[key] }}</b></a>
+  {% endfor %}
+</div>
+<div class="card p-4">
+<div class="table-responsive">
+<table class="table table-hover mb-0 sortable">
+  <thead><tr><th data-sort>학번</th><th data-sort>이름</th><th data-sort="num">학년</th><th>적용 요건</th>
+    <th class="text-end" data-sort="num">이수/졸업학점</th><th class="text-end" data-sort="num">누적평점</th>
+    <th class="text-center" data-sort="num">부족 영역·과목군</th><th class="text-center" data-sort="num">미이수 필수</th><th data-sort>판정</th></tr></thead>
+  <tbody>
+  {% for s in rows %}
+    <tr>
+      <td><a href="{{ url_for('admin.student_detail', student_id=s.student_id) }}">{{ s.student_id }}</a></td>
+      <td>{{ s.name }}</td>
+      <td data-v="{{ s.grade_level }}">{{ s.grade_level }}학년 <span class="small text-muted">({{ s.admission_year }})</span></td>
+      <td class="small">{% if s.req_from_year %}{{ s.req_from_year }}{{ ("~" ~ s.req_to_year ~ "학번") if s.req_to_year else "학번 이후" }}{% else %}-{% endif %}</td>
+      <td class="text-end" data-v="{{ s.earned_total }}">{{ s.earned_total }} / {{ s.required_total if s.required_total else '-' }}
+        {% if s.required_total %}<div class="progress progress-thin mt-1"><div class="progress-bar {{ 'bg-success' if not s.remaining_total }}" style="width: {{ s.earned_total|pct(s.required_total) }}%"></div></div>{% endif %}</td>
+      <td class="text-end" data-v="{{ s.cum_gpa or 0 }}">{{ s.cum_gpa|gpa }}</td>
+      <td class="text-center {{ 'text-danger' if s.short_area_count + s.short_group_count }}">{{ s.short_area_count + s.short_group_count }}</td>
+      <td class="text-center {{ 'text-danger' if s.missing_required_count }}">{{ s.missing_required_count }}</td>
+      <td>{% if s.required_total is none %}<span class="pill pill-bad">요건 미등록</span>
+          {% elif s.graduatable %}<span class="pill pill-ok">졸업 가능</span>
+          {% else %}<span class="pill pill-no">미충족</span>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="text-muted">조건에 맞는 학생이 없습니다.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="small text-muted mt-3 mb-0">{{ rows|length }}명 · 학과 전체 판정은 CTE 집합 쿼리 한 번으로 계산합니다(학생별 판정 뷰 V_GRAD_STATUS 와 같은 규칙).</p>
+</div>
+{% endblock %}

@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/34570035/README.md)
 # 홍익대학교 클래스룸 기반 장학·졸업 요건 자동 진단 시스템
 
 3팀 DB 팀프로젝트 웹사이트입니다. Flask + MySQL 8 + Jinja2로 만들었습니다.
@@ -41,12 +40,14 @@ Workbench 에서는 파일을 열고 번개 아이콘(전체 실행)을 누르�
 
 | 파일 | 내용 |
 | --- | --- |
-| 01_schema.sql | 테이블 16개 (기본·코드·기준·집계 + 과목군 3개 + USER_ACCOUNT, DB_META) |
-| 02_views.sql | 판정 뷰 8개 (V_STUDENT_REQ, V_LATEST_ENROLLMENT, V_EARNED_COURSE, V_GRAD_AREA_STATUS, V_GRAD_GROUP_STATUS, V_MISSING_REQUIRED, V_GRAD_STATUS, V_SCHOLARSHIP_ELIGIBLE) |
-| 03_triggers.sql | ENROLLMENT 트리거 3개 + GRAD_REQ 구간 겹침 검사 트리거 2개 + 재계산 프로시저 2개 |
+| 01_schema.sql | 테이블 14개 (원래 ERD 6개 + 코드 2 · 요건 상세 4 · 집계 1 · 로그인 1), 인덱스·CHECK 제약 |
+| 02_views.sql | 판정 뷰 10개 (V_STUDENT_REQ, V_LATEST_ENROLLMENT, V_EARNED_COURSE, V_GRAD_AREA_STATUS, V_GRAD_GROUP_STATUS, V_MISSING_REQUIRED, V_GRAD_STATUS, V_LAST_SEMESTER, V_SCHOLARSHIP_ELIGIBLE, V_COURSE_SUGGESTION) |
+| 03_triggers.sql | 트리거 8개 (ENROLLMENT 3 · COURSE 학점 변경 1 · GRAD_REQ 구간 겹침 2 · 과목군 규칙 2) + 재계산 프로시저 3개 |
 | 04_sample_data.sql | 실제 공개 자료 기반 과목 79개·졸업요건 3구간·교내장학금 7종 + 가상 학생 6명 |
 
 > 예전 버전 DB 가 있어도 start.bat 을 실행하면 구조가 바뀐 것을 알아채고 grad_check DB 를 새로 만듭니다.
+>
+> 테이블 구성 이유, v3(16개) → v4(14개) 정리 근거, 성능 측정 결과는 [docs/DB_DESIGN.md](docs/DB_DESIGN.md) 에 있습니다.
 
 ## 3. 웹 실행
 
@@ -81,7 +82,10 @@ python run.py
 3. "2026년 1학기 평점 3.40 → 3.60, 새로 신청 가능: 자주장학금, 창조장학금" 표시 (UPDATE 트리거가 SEMESTER_RECORD 재계산)
 4. 학번별 요건: `20211003`(2019~2021 기준)과 `20221005`(2022 이후 기준)의 졸업요건 화면을 비교하면 SW/데이터활용역량 과목군이 22학번에만 붙습니다.
 5. 졸업요건 관리에서 2020~2023 처럼 겹치는 구간을 추가하면 트리거가 막습니다.
-6. `demo` 로그인 → 성적 가져오기 → 클래스룸 성적표를 붙여 넣고 미리보기 → 저장 → 대시보드가 바로 바뀝니다.
+6. `20211001` 로그인 → 수강 계획 → 종합설계(2)·인공지능·졸업논문 체크 → "판정해 보기": 남은 학점 13 → 4, 미충족 0, 다음 장학 선발 예상까지 표시. 계산 뒤 ROLLBACK 해서 DB 에는 남지 않음
+7. `admin_sw` → 학과 통계: 영역별 미달 학생 수(GROUP BY·HAVING), 장학금별 지원 가능 학생, 평점 분포
+8. `admin_sw` → 과목군 → 전공필수·인증필수: 필수과목 목록을 바꾸면 세 학번 구간 요건에 한 번에 반영
+9. `demo` 로그인 → 성적 가져오기 → 클래스룸 성적표를 붙여 넣고 미리보기 → 저장 → 대시보드가 바로 바뀝니다.
    처음 상태로 되돌리려면 `python init_db.py`
 
 ## 5-1. 성적 가져오기 (클래스룸)
@@ -98,15 +102,20 @@ python run.py
 | 화면 | URL | 요구사항 |
 | --- | --- | --- |
 | 로그인 | /login | - |
-| 대시보드 | /me | FR-07 |
-| 성적 조회 | /me/grades | 재수강 표시 (ROW_NUMBER) |
-| 졸업요건 진단 | /me/graduation | FR-01, FR-03, FR-04 |
+| 대시보드 | /me | FR-07, 평점 추이 차트, 추천 과목 |
+| 성적 조회 | /me/grades | 재수강 표시 (ROW_NUMBER), 평점 차트 |
+| 졸업요건 진단 | /me/graduation | FR-01, FR-03, FR-04, 부족 요건별 추천 과목 (V_COURSE_SUGGESTION) |
 | 장학금 진단 | /me/scholarships | FR-02 |
+| 수강 계획 시뮬레이터 | /me/plan | 가상 수강 INSERT → 판정 뷰 조회 → ROLLBACK |
+| 진단서 인쇄 | /me/report | A4 인쇄 / PDF 저장 |
 | 성적 가져오기 | /me/import | 붙여넣기·CSV → COURSE/ENROLLMENT (트랜잭션) |
-| 학생 목록 | /admin/students | 검색(LIKE), 영역 미달 필터(HAVING) |
-| 학생 상세 | /admin/students/<학번> | FR-01~04 |
-| 성적 수정 | /admin/enrollments/<id>/edit | FR-05 (트리거) |
-| 졸업요건 관리 | /admin/grad-reqs | FR-06 (트랜잭션) |
+| 비밀번호 변경 | /account/password | scrypt 해시, 마지막 로그인 시각 |
+| 학생 목록 | /admin/students | 검색(LIKE), 판정 상태 필터, 정렬, CSV 내려받기 (학과 전체를 CTE 한 번으로 판정) |
+| 학과 통계 | /admin/stats | 영역·과목군 미달 학생 수(GROUP BY·HAVING), 장학금별 가능 인원, 평점 분포·추이 |
+| 학생 상세 | /admin/students/<학번> | FR-01~04, 진단서 |
+| 성적 수정 | /admin/enrollments/<id>/edit | FR-05 (트리거), 졸업·장학 판정 변화 표시 |
+| 졸업요건 관리 | /admin/grad-reqs | FR-06 (트랜잭션), 필수과목 목록 연결, 요건 삭제 |
+| 과목군 관리 | /admin/groups | 필수과목(모두 이수)·n학점 이상 과목군 만들기·구성 과목 편집 |
 | 장학금 관리 | /admin/scholarships | FR-06 |
 
 ## 7. 판정 기준과 데이터 출처
@@ -114,7 +123,8 @@ python run.py
 판정 규칙
 - 졸업요건은 학과 + **입학연도 구간**(2016~2018 / 2019~2021 / 2022~) 단위. 학생 입학연도가 든 구간이 자동 적용
 - 영역은 묶음 구조: 전공(=전공필수+전공선택), MSC(=수학+과학+전산), 전문교양(=기초+핵심+일반교양)
-- "이 과목들 중 n학점" 요건은 과목군(COURSE_GROUP)으로 판정: 글쓰기 택1, 특성화교양 택1, 예술과디자인·제2외국어와한문 영역, SW/데이터활용역량
+- "이 과목들 중 n학점" 요건은 과목군(COURSE_GROUP, 규칙 CREDITS)으로 판정: 글쓰기 택1, 특성화교양 택1, 예술과디자인·제2외국어와한문 영역, SW/데이터활용역량
+- 필수과목(전공필수 5 + 기초설계·종합설계(1))은 "모두 이수" 과목군(규칙 ALL) 하나로 정의하고 세 학번 구간 요건이 함께 연결
 - SW/데이터활용역량(2022학번~)은 "심화 3 · 기초 이상 6 · 전체 9학점" 세 과목군으로 표현해 상위 모듈이 하위 모듈을 대신하는 규칙을 반영
 - 재수강은 최근 성적만, F·NP 는 학점 미인정, P·NP 는 평점 제외
 - 장학금 "직전 학기"는 계절학기를 뺀 가장 최근 정규학기. 평점·취득학점·소득분위·봉사시간(4학년 면제)으로 최소 자격만 판정 (실제 선발은 학과 내 경쟁)
@@ -151,9 +161,12 @@ app/
   admin.py     담당자 화면
   queries/     화면별 SQL 모음 (발표 때 보여주기 좋게 분리)
   templates/   HTML (Jinja2)
-  static/      CSS, Bootstrap 5.3.3 (오프라인에서도 동작하도록 포함)
+  static/      CSS, app.js(표 정렬·검색·선택 합계), Bootstrap 5.3.3 (오프라인에서도 동작하도록 포함)
+  templates/macros/charts.html  SVG 차트 (외부 라이브러리 없이 서버에서 그림)
 config.py      .env 에서 DB 접속 정보 읽기
 init_db.py     db/01~04 를 순서대로 실행 (start.bat 이 사용)
+tools/         gen_sample.py (샘플 데이터 생성), bench.py (가상 학생 N명으로 성능 측정·판정 일치 검사)
+docs/          DB_DESIGN.md (테이블 구성 근거, v3→v4 정리, 성능 측정)
 start.bat      Windows 원클릭 실행 / start.command 는 macOS 용
 run.py         실행 파일
 ```
