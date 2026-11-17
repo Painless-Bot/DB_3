@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ r.info.name }} 졸업·장학 진단서</title>
+  <link href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body class="report-page">
+{% set st = r.status %}
+<div class="report-toolbar no-print">
+  <a href="{{ request.referrer or url_for('index') }}">← 돌아가기</a>
+  <button class="btn btn-primary btn-sm" onclick="window.print()">인쇄 / PDF 저장</button>
+</div>
+<main class="report-sheet">
+  <header class="report-head">
+    <div>
+      <div class="report-brand"><span class="mark">H</span> HONGIK 진단센터</div>
+      <h1>졸업요건 · 교내장학금 진단서</h1>
+    </div>
+    <div class="text-end small text-muted">발급 {{ now.strftime('%Y-%m-%d %H:%M') }}<br>참고용 · 공식 증명서 아님</div>
+  </header>
+
+  <table class="report-info">
+    <tr><th>성명</th><td>{{ r.info.name }}</td><th>학번</th><td>{{ r.info.student_id }}</td><th>학과</th><td>{{ r.info.dept_name }} ({{ r.info.campus }})</td></tr>
+    <tr><th>입학</th><td>{{ r.info.admission_year }}학번 · {{ r.info.grade_level }}학년</td><th>적용 요건</th><td>{{ r.req|years if r.req else '미등록' }}</td>
+        <th>판정</th><td><strong class="{{ 'text-success' if st.graduatable else 'text-danger' }}">{{ '졸업 가능' if st.graduatable else ('요건 미등록' if not st.req_id else '미충족') }}</strong></td></tr>
+  </table>
+
+  <section>
+    <h2>1. 요약</h2>
+    <div class="report-kpis">
+      <div><span>이수 / 졸업학점</span><b>{{ st.earned_total }} / {{ st.required_total or '-' }}</b></div>
+      <div><span>누적 평점</span><b>{{ st.cum_gpa|gpa }}</b></div>
+      <div><span>설계학점</span><b>{{ st.earned_design }} / {{ st.min_design_credits or 0 }}</b></div>
+      <div><span>미충족 항목</span><b>{{ st.short_area_count + st.short_group_count + st.missing_required_count }}</b></div>
+      <div><span>지원 가능 장학금</span><b>{{ r.eligible_count }} / {{ r.scholarships|length }}</b></div>
+    </div>
+  </section>
+
+  {% if st.req_id %}
+  <section>
+    <h2>2. 영역별 이수 학점</h2>
+    <table class="table table-sm report-table">
+      <thead><tr><th>영역</th><th class="text-end">기준</th><th class="text-end">이수</th><th class="text-end">남음</th></tr></thead>
+      <tbody>
+      {% for a in r.areas %}
+        <tr><td>{% if a.parent_code %}└ {% endif %}{{ a.area_name }}</td><td class="text-end">{{ a.min_credits }}</td><td class="text-end">{{ a.earned_credits }}</td>
+          <td class="text-end {{ 'text-danger' if a.remaining_credits }}">{{ a.remaining_credits or '✓' }}</td></tr>
+      {% endfor %}
+        <tr class="fw-bold"><td>총 이수학점</td><td class="text-end">{{ st.required_total }}</td><td class="text-end">{{ st.earned_total }}</td><td class="text-end">{{ st.remaining_total or '✓' }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-2col">
+    <div>
+      <h2>3. 과목군 요건</h2>
+      <table class="table table-sm report-table">
+        <tbody>
+        {% for g in r.groups %}
+          <tr><td>{{ g.group_name }}</td><td class="text-end {{ 'text-danger' if g.remaining_credits }}">{% if g.min_credits == 1 %}{{ '이수' if not g.remaining_credits else '미이수' }}{% else %}{{ g.earned_credits }}/{{ g.min_credits }}{% endif %}</td></tr>
+        {% else %}<tr><td class="text-muted">없음</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h2>4. 미이수 필수과목</h2>
+      <table class="table table-sm report-table">
+        <tbody>
+        {% for m in r.missing %}<tr><td>{{ m.course_name }} <span class="text-muted">{{ m.course_id }}</span></td><td class="text-end">{{ m.credits }}학점</td></tr>
+        {% else %}<tr><td class="text-success">모두 이수</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>5. 교내장학금 최소 자격 {% if r.last_sem %}<small>직전 정규학기 {{ r.last_sem.year }}년 {{ r.last_sem.term|term }} · 평점 {{ r.last_sem.gpa|gpa }} · {{ r.last_sem.earned_credits }}학점</small>{% endif %}</h2>
+    <table class="table table-sm report-table">
+      <thead><tr><th>장학금</th><th>평점</th><th>학점</th><th>소득</th><th>봉사</th><th>결과</th></tr></thead>
+      <tbody>
+      {% for s in r.scholarships %}
+        <tr><td>{{ s.sch_name }}</td><td>{{ '✓' if s.gpa_ok else '✕' }} {{ s.min_gpa|gpa }}</td><td>{{ '✓' if s.credits_ok else '✕' }} {{ s.min_credits }}</td>
+          <td>{{ '✓' if s.income_ok else '✕' }} {{ (s.max_income ~ '분위') if s.max_income is not none else '무관' }}</td>
+          <td>{{ '✓' if s.volunteer_ok else '✕' }} {{ (s.min_volunteer_hours ~ 'h') if s.min_volunteer_hours is not none else '-' }}</td>
+          <td class="fw-bold {{ 'text-success' if s.eligible }}">{{ '지원 가능' if s.eligible else '미달' }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 학기별 성적</h2>
+    <table class="table table-sm report-table">
+      <thead><tr><th>학기</th><th class="text-end">신청</th><th class="text-end">취득</th><th class="text-end">평점</th></tr></thead>
+      <tbody>
+      {% for s in r.semesters %}<tr><td>{{ s.year }}년 {{ s.term|term }}</td><td class="text-end">{{ s.attempted_credits }}</td><td class="text-end">{{ s.earned_credits }}</td><td class="text-end">{{ s.gpa|gpa }}</td></tr>
+      {% else %}<tr><td colspan="4" class="text-muted">수강 이력 없음</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if r.suggestions %}
+  <section>
+    <h2>7. 남은 요건을 채우는 과목</h2>
+    <p class="small">{% for s in r.suggestions[:12] %}{{ s.course_name }}({{ s.credits }}){% if not loop.last %}, {% endif %}{% endfor %}{% if r.suggestions|length > 12 %} 외 {{ r.suggestions|length - 12 }}과목{% endif %}</p>
+  </section>
+  {% endif %}
+
+  <footer class="report-foot">재수강은 최근 성적만, F·NP 는 학점 미인정, P·NP 는 평점 제외. 장학금은 최소 지원 자격만 판정하며 실제 선발은 학교 공식 절차를 따릅니다.
+    {% if r.req and r.req.note %}<br>{{ r.req.note }}{% endif %}</footer>
+</main>
+</body>
+</html>

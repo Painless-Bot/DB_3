@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+.env.*
+!.env.example
+venv/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+# 개인 성적 파일(클래스룸에서 받은 CSV 등)은 올리지 않기
+*.csv
+*.xlsx

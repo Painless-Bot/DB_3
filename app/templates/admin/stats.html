@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "macros/charts.html" import hbars, vbars, ring %}
+{% block title %}학과 통계{% endblock %}
+{% block hero %}
+<div class="eyebrow">ADMIN · STATISTICS</div>
+<h1 class="hero-title"><strong>{{ admin_dept_name }}</strong> 진단 통계</h1>
+<p class="hero-sub">학과 학생 전체의 졸업요건·장학금 판정을 GROUP BY 로 모아 봅니다. 어떤 영역에서 학생들이 많이 막히는지, 장학금 기준을 몇 명이 넘는지 확인하세요.</p>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3"><div class="card stat-card"><div class="stat-label">학생 수</div>
+    <div class="stat-value">{{ kpi.students }}<span class="fs-6 text-muted fw-normal">명</span></div>
+    <div class="stat-sub">{% if kpi.noreq %}요건 미등록 {{ kpi.noreq }}명{% else %}모든 학생에게 요건 적용{% endif %}</div></div></div>
+  <div class="col-6 col-xl-3"><div class="card stat-card"><div class="stat-label">졸업 가능</div>
+    <div class="stat-value text-success">{{ kpi.graduatable }}<span class="fs-6 text-muted fw-normal">명</span></div>
+    <div class="stat-sub">4학년 이상 {{ kpi.seniors }}명 중 미충족 <strong class="text-danger">{{ kpi.senior_short }}</strong>명</div></div></div>
+  <div class="col-6 col-xl-3"><div class="card stat-card"><div class="stat-label">평균 누적평점</div>
+    <div class="stat-value">{{ '%.2f'|format(kpi.avg_gpa) if kpi.avg_gpa is not none else '-' }}</div>
+    <div class="stat-sub">재수강은 최신 성적 기준</div></div></div>
+  <div class="col-6 col-xl-3"><div class="card stat-card"><div class="stat-label">장학금 1종 이상 지원 가능</div>
+    <div class="stat-value">{{ kpi.any_sch }}<span class="fs-6 text-muted fw-normal">명</span></div>
+    <div class="stat-sub">직전 정규학기 기준</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card p-4 h-100 text-center">
+      <div class="card-title-sm">졸업 요건 충족률</div>
+      {% set denom = kpi.students - kpi.noreq %}
+      <div class="d-flex justify-content-center gap-4 flex-wrap">
+        {{ ring(((100 * kpi.graduatable / denom)|round|int) if denom else 0, '전체', kpi.graduatable ~ '/' ~ denom ~ '명', ok=True) }}
+        {{ ring(((100 * (kpi.seniors - kpi.senior_short) / kpi.seniors)|round|int) if kpi.seniors else 0, '4학년 이상', (kpi.seniors - kpi.senior_short) ~ '/' ~ kpi.seniors ~ '명') }}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">남은 졸업학점 분포</div>
+      {{ vbars(remaining) }}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">직전 학기 평점 분포 <span class="sub">0.5 단위</span></div>
+      {% set hb = [] %}{% for h in hist %}{% set _ = hb.append(('%.1f'|format(h.bin|float) ~ '~', h.n)) %}{% endfor %}
+      {{ vbars(hb) }}
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">영역별 기준 미달 학생 <span class="sub">FR-03 · 평균 부족 학점</span></div>
+      {% set ai = [] %}{% for a in areas %}{% set _ = ai.append((a.area_name, a.student_count, '평균 ' ~ a.avg_short ~ '학점 부족')) %}{% endfor %}
+      {{ hbars(ai, max_value=kpi.students, unit='명', tone='bad') }}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">과목군·필수과목 미충족 학생</div>
+      {% set gi = [] %}{% for g in groups %}{% set _ = gi.append((g.group_name, g.student_count, '필수' if g.rule_type == 'ALL' else '')) %}{% endfor %}
+      {{ hbars(gi, max_value=kpi.students, unit='명', tone='warn') }}
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">장학금별 지원 가능 학생</div>
+      {% set si = [] %}{% for s in sch %}{% set _ = si.append((s.sch_name, s.eligible_count|int, s.category ~ ' · ' ~ (s.min_gpa|gpa) ~ ' 이상')) %}{% endfor %}
+      {{ hbars(si, max_value=kpi.students, unit='명', tone='ok') }}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <div class="card-title-sm">입학연도별 현황</div>
+      <table class="table table-sm mb-3">
+        <thead><tr><th>입학</th><th class="text-end">학생</th><th class="text-end">졸업 가능</th><th class="text-end">평균 누적평점</th></tr></thead>
+        <tbody>{% for c in cohorts %}<tr><td>{{ c.year }}학번</td><td class="text-end">{{ c.n }}</td><td class="text-end">{{ c.ok }}</td><td class="text-end">{{ '%.2f'|format(c.gpa) if c.gpa is not none else '-' }}</td></tr>{% endfor %}</tbody>
+      </table>
+      {% if trend %}
+      <div class="small fw-bold mb-1">학기별 학과 평균 평점</div>
+      <div class="small text-muted">{% for t in trend %}{{ t.year % 100 }}-{{ t.term }} <strong class="text-body">{{ t.avg_gpa|gpa }}</strong>{% if not loop.last %} · {% endif %}{% endfor %}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

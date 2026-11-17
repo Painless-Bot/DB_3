@@ -1,0 +1,14 @@
+{# 수강 계획 과목 한 줄. c = 후보 과목, s = 추천 정보(없으면 none), picks = 선택한 과목 → 성적 #}
+{% set on = c.course_id in picks %}
+<label class="plan-row {{ 'on' if on }}" data-name="{{ c.course_name }}">
+  <input class="form-check-input" type="checkbox" name="course" value="{{ c.course_id }}" data-credits="{{ c.credits }}" {{ 'checked' if on }}>
+  <span class="flex-grow-1">
+    <span class="fw-semibold">{{ c.course_name }}</span>
+    <span class="small text-muted">{{ c.credits }}학점 · {{ c.area_name }}{% if c.design_credits %} · 설계 {{ c.design_credits }}{% endif %}</span>
+    {% if c.last_grade %}<span class="pill pill-bad">재수강 ({{ c.last_grade }})</span>{% endif %}
+    {% if s %}<br>{% for reason in s.reasons %}<span class="pill {{ kinds[s.priority][1] if loop.first else 'pill-no' }} me-1">{{ reason }}</span>{% endfor %}{% endif %}
+  </span>
+  <select class="form-select form-select-sm grade-pick" name="g_{{ c.course_id }}" aria-label="예상 성적">
+    {% for g in grades %}<option {{ 'selected' if (picks.get(c.course_id) or 'A0') == g }}>{{ g }}</option>{% endfor %}
+  </select>
+</label>
