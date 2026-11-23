@@ -1,0 +1,7 @@
+# 이 폴더는 브라우저로 직접 열 필요가 없다 (Apache 가 .htaccess 를 허용할 때만 적용)
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Deny from all
+</IfModule>

@@ -1,0 +1,10 @@
+<?php defined('APP_ROOT') || exit;
+$title = '성적 조회';
+ob_start();
+$page_label = 'STUDENT · GRADES';
+$page_title = '성적 조회';
+$page_desc = '학기별 수강 과목과 평점입니다. 재수강한 과목은 가장 최근 성적만 인정됩니다.';
+include APP_ROOT . '/views/partials/student_hero.php';
+$hero_html = ob_get_clean();
+$editable = false;
+include APP_ROOT . '/views/partials/grades.php';

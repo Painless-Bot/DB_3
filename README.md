@@ -3,6 +3,8 @@
 3팀 DB 팀프로젝트 웹사이트입니다. Flask + MySQL 8 + Jinja2로 만들었습니다.
 장학금·졸업 판정 계산은 DB의 뷰와 트리거가 하고, 웹은 결과를 조회해 보여 줍니다.
 
+> **학교 서버(PHP + Oracle)에 올리는 판은 [`php/`](php/) 폴더에 있습니다.** 화면과 판정은 같고, 올리는 순서는 [`php/README_DEPLOY.md`](php/README_DEPLOY.md)를 보세요.
+
 ## 가장 쉬운 실행 방법 (Windows)
 
 > `app/templates/` 안의 HTML 파일을 브라우저로 직접 열면 `{{ }}` 같은 글자만 보입니다.
@@ -169,4 +171,5 @@ tools/         gen_sample.py (샘플 데이터 생성), bench.py (가상 학생 
 docs/          DB_DESIGN.md (테이블 구성 근거, v3→v4 정리, 성능 측정)
 start.bat      Windows 원클릭 실행 / start.command 는 macOS 용
 run.py         실행 파일
+php/           학교 서버용 PHP + Oracle(OCI8) 판 (sql/ 에 Oracle 스크립트, README_DEPLOY.md 에 배포 순서)
 ```
