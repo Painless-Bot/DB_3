@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}수강 계획 시뮬레이터{% endblock %}
+{% block hero %}
+{% set page_label = 'STUDENT · PLANNER' %}{% set page_title = '수강 계획 시뮬레이션' %}{% set page_desc = '다음 학기에 들을 과목과 예상 성적을 고르면, 실제 판정 뷰로 졸업요건과 장학금 결과가 어떻게 바뀌는지 미리 보여 줍니다. 계산이 끝나면 DB 에는 아무것도 남기지 않습니다(트랜잭션 ROLLBACK).' %}
+{% include "partials/student_hero.html" %}
+{% endblock %}
+{% block content %}
+{% set kinds = {1: ('필수', 'pill-bad'), 2: ('과목군', 'pill-info'), 3: ('영역', 'pill-no'), 4: ('설계', 'pill-no')} %}
+<form method="post" id="plan-form">
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">계획할 학기</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-5 col-sm-3"><label class="form-label small" for="year">연도</label>
+          <input class="form-control" id="year" name="year" type="number" min="2000" max="2100" value="{{ year }}"></div>
+        <div class="col-7 col-sm-4"><label class="form-label small" for="term">학기</label>
+          <select class="form-select" id="term" name="term">
+            {% for t, label in [(1, '1학기'), (2, '2학기'), (3, '여름학기'), (4, '겨울학기')] %}
+              <option value="{{ t }}" {{ 'selected' if t == term }}>{{ label }}</option>
+            {% endfor %}
+          </select></div>
+        <div class="col-sm-5 small text-muted">장학 판정은 정규학기(1·2학기)를 "직전 학기"로 봅니다.</div>
+      </div>
+    </div>
+
+    <div class="card p-4 mb-3">
+      <div class="card-title-sm">추천 과목 <span class="sub">부족한 요건을 채우는 과목 · 체크하고 예상 성적을 고르세요</span></div>
+      {% set rec = r.suggestions|selectattr('course_id', 'in', cand)|list %}
+      {% if rec %}
+      <div class="plan-list">
+        {% for s in rec %}{% set c = cand[s.course_id] %}{% include "partials/plan_row.html" %}{% endfor %}
+      </div>
+      {% else %}
+        <p class="small text-muted mb-0">부족한 영역·과목군·필수과목이 없습니다. 아래 전체 과목에서 고르세요.</p>
+      {% endif %}
+    </div>
+
+    <div class="card p-4">
+      <div class="card-title-sm">전체 과목 <span class="sub">아직 학점을 받지 않은 우리 학과·공통 과목</span>
+        <input class="form-control form-control-sm ms-auto" style="max-width: 200px" type="search" placeholder="과목명 검색" data-filter="#all-courses .plan-row"></div>
+      <div id="all-courses">
+      {% for area, items in candidates|rejectattr('course_id', 'in', suggested)|groupby('sort_order') %}
+        <details class="plan-group" {{ 'open' if loop.first }}>
+          <summary>{{ items[0].area_name }} <span class="text-muted small">{{ items|length }}과목</span></summary>
+          <div class="plan-list">
+            {% for c in items %}{% set s = none %}{% include "partials/plan_row.html" %}{% endfor %}
+          </div>
+        </details>
+      {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5 order-first order-lg-0">
+    <div class="plan-side">
+      <div class="card p-4 mb-3">
+        <div class="card-title-sm">선택한 과목</div>
+        <div class="d-flex gap-4 align-items-end mb-2">
+          <div><div class="stat-label">과목</div><div class="stat-value" id="pick-count">{{ picks|length }}</div></div>
+          <div><div class="stat-label">학점</div><div class="stat-value" id="pick-credits">0</div></div>
+          <div><div class="stat-label">예상 학기 평점</div><div class="stat-value" id="pick-gpa">-</div></div>
+        </div>
+        <div class="small text-muted mb-3" id="pick-warn"></div>
+        <button class="btn btn-primary w-100 btn-lg">이대로 들으면? 판정해 보기</button>
+        {% if picks %}<a class="btn btn-link w-100 btn-sm mt-1" href="{{ url_for('student.plan') }}">선택 초기화</a>{% endif %}
+      </div>
+
+      {% if result %}
+      {% set b, a = result.before, result.after %}
+      <div class="card p-4 plan-result" id="result">
+        <div class="card-title-sm">{{ year }}년 {{ term|term }} 계획 결과 <span class="sub">{{ picks|length }}과목 · {{ result.credits }}학점</span></div>
+        <div class="verdict {{ 'ok' if a.status.graduatable else 'no' }} mb-3">
+          <span class="fs-4">{{ '🎓' if a.status.graduatable else '📋' }}</span>
+          <div>
+            {% if a.status.graduatable and not b.status.graduatable %}<div class="big">이 계획대로면 졸업 요건을 모두 충족합니다!</div>
+            {% elif a.status.graduatable %}<div class="big">이미 졸업 요건을 충족한 상태입니다.</div>
+            {% else %}<div class="big">계획 후에도 남는 요건이 있습니다.</div>
+              <div class="small">총학점 {{ a.status.remaining_total }}학점 남음 · 미충족 영역 {{ a.status.short_area_count }} · 과목군 {{ a.status.short_group_count }} · 필수과목 {{ a.status.missing_required_count }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <table class="table table-sm mb-3">
+          <thead><tr><th></th><th class="text-end">지금</th><th class="text-end">계획 후</th></tr></thead>
+          <tbody>
+            {% macro delta_row(label, x, y, fmt=None, good_up=True) %}
+              {% set changed = x != y %}
+              <tr><td>{{ label }}</td><td class="text-end text-muted">{{ fmt(x) if fmt else x }}</td>
+                <td class="text-end fw-semibold {{ 'text-success' if changed }}">{{ fmt(y) if fmt else y }}</td></tr>
+            {% endmacro %}
+            {{ delta_row('이수 학점', b.status.earned_total, a.status.earned_total) }}
+            {{ delta_row('남은 졸업학점', b.status.remaining_total, a.status.remaining_total) }}
+            {{ delta_row('설계학점', b.status.earned_design ~ '/' ~ b.status.min_design_credits, a.status.earned_design ~ '/' ~ a.status.min_design_credits) }}
+            {{ delta_row('누적 평점', b.status.cum_gpa|gpa, a.status.cum_gpa|gpa) }}
+            {{ delta_row('미충족 항목', b.status.short_area_count + b.status.short_group_count + b.status.missing_required_count,
+                                      a.status.short_area_count + a.status.short_group_count + a.status.missing_required_count) }}
+            <tr><td>{{ year }}년 {{ term|term }} 평점</td><td class="text-end text-muted">-</td>
+              <td class="text-end fw-semibold">{{ a.sem.gpa|gpa if a.sem else '-' }} <span class="small text-muted">({{ a.sem.earned_credits if a.sem else 0 }}학점)</span></td></tr>
+          </tbody>
+        </table>
+
+        {% set changed_areas = [] %}
+        {% for code, x in a.areas.items() if b.areas[code].earned_credits != x.earned_credits %}{% set _ = changed_areas.append((b.areas[code], x)) %}{% endfor %}
+        {% if changed_areas %}
+        <div class="small fw-bold mb-1">영역별 변화</div>
+        <ul class="small list-unstyled mb-3">
+          {% for x, y in changed_areas %}
+            <li>{{ y.area_name }} {{ x.earned_credits }} → <strong>{{ y.earned_credits }}</strong>/{{ y.min_credits }}
+              {% if x.remaining_credits and not y.remaining_credits %}<span class="pill pill-ok">충족</span>{% elif y.remaining_credits %}<span class="text-muted">({{ y.remaining_credits }} 남음)</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% set done_groups = [] %}
+        {% for code, y in a.groups.items() if b.groups[code].remaining_credits and not y.remaining_credits %}{% set _ = done_groups.append(y.group_name) %}{% endfor %}
+        {% set done_required = b.missing|map(attribute='course_name')|reject('in', a.missing|map(attribute='course_name')|list)|list %}
+        {% if done_groups or done_required %}
+        <div class="small fw-bold mb-1">새로 채우는 요건</div>
+        <div class="mb-3">{% for g in done_groups %}<span class="pill pill-ok me-1">{{ g }}</span>{% endfor %}{% for m in done_required %}<span class="pill pill-ok me-1">필수 {{ m }}</span>{% endfor %}</div>
+        {% endif %}
+
+        {% if term in (1, 2) %}
+        <div class="small fw-bold mb-1">이 학기 성적으로 본 다음 장학 선발</div>
+        <ul class="small list-unstyled mb-0">
+          {% for sid, s in a.sch.items() %}
+            <li class="d-flex justify-content-between border-top py-1">
+              <span>{{ s.sch_name }} <span class="text-muted">{{ s.min_gpa|gpa }} 이상</span></span>
+              {% if s.eligible %}<span class="pill pill-ok">지원 가능{% if not b.sch[sid].eligible %} · NEW{% endif %}</span>
+              {% else %}<span class="pill pill-no">
+                {% if not s.gpa_ok %}평점 {{ '%.2f'|format(s.min_gpa - (s.last_gpa or 0)) }} 부족{% elif not s.credits_ok %}{{ s.min_credits - (s.last_credits or 0) }}학점 부족{% elif not s.income_ok %}소득분위{% else %}봉사시간{% endif %}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="small text-muted mb-0">계절학기는 장학금 "직전 학기"에 들어가지 않습니다.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+</form>
+{% endblock %}
